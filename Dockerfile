@@ -25,6 +25,8 @@ RUN python3 -m pip install \
         museval \
         onnxruntime-gpu
 
+RUN pip install python-multipart
+
 RUN pip install \
     fastapi==0.115.4 uvicorn[standard]==0.32.0 
 
