@@ -4,6 +4,6 @@ docker run --rm -p 8003:8003 --gpus all audio-assess:cu124
 
 cd .......
 
-curl -X POST "http://localhost:8003/inference" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "file=@input.wav"
+curl -X POST "http://localhost:8003/inference" -H "accept: application/json" -H "Content-Type: multipart/form-data" -F "file=@sample.wav"
 
 nohup docker run -d --rm -p 8003:8003 --gpus all audio-assess:cu124 > server.log 2>&1 &

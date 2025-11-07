@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from typing import Dict
 import uvicorn
 from scoring import Scoring
@@ -22,6 +23,21 @@ app.add_middleware(
 
 MODEL = None
 SAMPLE_RATE = 16000
+def to_jsonable(obj):
+    """Recursively convert dict/list/ndarray/NumPy scalars to JSON-safe types.
+       - dict keys -> str
+       - np.generic -> Python scalar
+       - np.ndarray -> list
+    """
+    if isinstance(obj, dict):
+        return {str(k): to_jsonable(v) for k, v in obj.items()}  # keys -> str
+    if isinstance(obj, (list, tuple)):
+        return [to_jsonable(x) for x in obj]
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.generic):  # e.g., np.float32, np.int64
+        return obj.item()
+    return obj  # already JSON-safe
 
 # TODO: load your model/decoder once at startup
 @app.on_event("startup")
@@ -85,7 +101,7 @@ def inference(file: UploadFile = File(...)):
             raise HTTPException(400, f"ffmpeg failed to decode input: {e}")
         print("Converted input to 16k WAV")
         assessment_result = MODEL.inference(wav_path, window_size=None)
-        return assessment_result
+        return JSONResponse(content=to_jsonable(assessment_result))
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8003, reload=True)
