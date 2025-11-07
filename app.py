@@ -1,50 +1,45 @@
-from model import DNSMOS
-import soundfile as sf 
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Dict
+import uvicorn
+from scoring import Scoring
+import os 
+import tempfile
 
-class Scoring(object):
-    def __init__(self):
-        self.model = DNSMOS()
-        self.sample_audio = "./sample.wav"
-        self.warmup()
+app = FastAPI(title="STT API", version="1.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    def warmup(self):
-        self.inference(self.sample_audio)
+MODEL = None
+SAMPLE_RATE = 16000
 
-    def inference(self, audio_path, window_size=None):
-        """
-        window_size: None -> assess all audios
-        """
-        audio_test, rate_test = sf.read(audio_path, always_2d=False)
-        inputs = {"audio" : [audio_test], "rate" : rate_test}
-        result = self.model.scoring(inputs, window=window_size)
-        return result
+# TODO: load your model/decoder once at startup
+@app.on_event("startup")
+def _load():
+    # Example:
+    # global asr
+    # asr = YourASR.load_from_checkpoint("/models/ckpt.pt")
+    global MODEL
+    MODEL = Scoring()
 
-    @classmethod
-    def cut_audio(input_path: str, output_path: str, start_sec: float, end_sec: float):
-        """
-        Cut an audio file between start_sec and end_sec and save the result.
+@app.get("/health")
+async def health() -> Dict[str, str]:
+    return {"status": "ok"}
 
-        Args:
-            input_path (str): Path to the input audio file.
-            output_path (str): Path to save the trimmed audio.
-            start_sec (float): Start time in seconds.
-            end_sec (float): End time in seconds.
-        """
-        # Read the whole audio
-        audio, sr = sf.read(input_path)
-        
-        # Compute sample indices
-        start_sample = int(start_sec * sr)
-        end_sample = int(end_sec * sr)
-        
-        # Clip to valid range
-        start_sample = max(0, start_sample)
-        end_sample = min(len(audio), end_sample)
-        
-        # Slice audio
-        trimmed_audio = audio[start_sample:end_sample]
-        
-        # Write trimmed file
-        sf.write(output_path, trimmed_audio, sr)
-        
-        print(f"✅ Saved trimmed audio from {start_sec}s to {end_sec}s → {output_path}")
+@app.post("/inference")
+def inference(file: UploadFile = File(...)):
+    # Save upload to temp, convert to wav16k if needed
+    with tempfile.TemporaryDirectory() as td:
+        src_path = os.path.join(td, file.filename)
+        with open(src_path, "wb") as f:
+            f.write(file.file.read())
+        assessment_result = MODEL.inference(src_path, window_size=5)
+        return assessment_result
+
+if __name__ == "__main__":
+    uvicorn.run("app:app", host="0.0.0.0", port=8003, reload=True)
