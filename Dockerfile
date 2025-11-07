@@ -1,5 +1,5 @@
 # ---- Base image: CUDA runtime for GPU inference ----
-FROM nvidia/cuda:12.2.2-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
